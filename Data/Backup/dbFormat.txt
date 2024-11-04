@@ -1,0 +1,26 @@
+CREATE TABLE "Channels" (
+	"channelName"	TEXT,
+	"channelID"	TEXT,
+	"URL"	TEXT,
+	"numVideos"	INTEGER,
+	PRIMARY KEY("channelID")
+)
+
+CREATE TABLE "Videos" (
+	"channel"	TEXT,
+	"videoID"	TEXT,
+	"thumnailURL"	TEXT,
+	"uploadDate"	TEXT,
+	"transcribed"	INTEGER,
+	"indexed"	INTEGER,
+	"numLines"	INTEGER,
+	PRIMARY KEY("videoID")
+)
+
+CREATE TABLE "Transcriptions" (
+	"videoID"	TEXT,
+	"startTime"	INTEGER,
+	"endTime"	INTEGER,
+	"text"	TEXT,
+	"indexed"	INTEGER
+)
