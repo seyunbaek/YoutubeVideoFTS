@@ -18,9 +18,11 @@ CREATE TABLE "Videos" (
 )
 
 CREATE TABLE "Transcriptions" (
+	"id"	INTEGER,
 	"videoID"	TEXT,
 	"startTime"	INTEGER,
 	"endTime"	INTEGER,
 	"text"	TEXT,
-	"indexed"	INTEGER
+	"indexed"	INTEGER,
+	PRIMARY KEY("id")
 )

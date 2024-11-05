@@ -6,7 +6,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
-public class TestRange {
+public class MaxRange {
     public static void main(String[] args) {
         String url = "jdbc:sqlite:Data/database.db"; // Update with your database path
         String query = "SELECT videoID, startTime, endTime, text, (endTime - startTime) AS range FROM Transcriptions ORDER BY range DESC LIMIT 1";

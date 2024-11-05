@@ -7,8 +7,8 @@ import backend.Video;
 
 public class FillTranscriptionsTable {
     public static void main(String[] args) {
-        String url = "jdbc:sqlite:Data/database.db";
-        String fileDirectory = "Data/Files";
+        String url = "jdbc:sqlite:Data/Test/testDB.db";
+        String fileDirectory = "Data/Test";
         String selectVideosQuery = "SELECT channel, videoID FROM Videos WHERE transcribed = 0";
         String updateVideoQuery = "UPDATE Videos SET transcribed = ?, numLines = ? WHERE videoID = ?";
         String insertTranscriptionQuery = "INSERT INTO Transcriptions (videoID, startTime, endTime, text, indexed) VALUES (?, ?, ?, ?, ?)";
@@ -24,7 +24,7 @@ public class FillTranscriptionsTable {
                         String videoID = rs.getString("videoID");
 
                         // Step 2: Create Video instance and transcribe
-                        Video video = new Video(channelName, videoID, url, fileDirectory);
+                        Video video = new Video(channelName, videoID, conn, fileDirectory);
                         List<String[]> transcriptions = video.transcribe();
 
                         // Step 3: Update transcribed status and numSentences in the Videos table

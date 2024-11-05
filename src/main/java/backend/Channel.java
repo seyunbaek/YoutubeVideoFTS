@@ -19,39 +19,32 @@ public class Channel {
     private final String URL;
     public int numVideos;
     public final String archive;
-    private final String databaseAddress;
     private final String fileDirectory;
+    private final Connection conn;
 
-    public Channel(String channelName, String channelID, String URL, String databaseAddress, String fileDirectory) {
+    public Channel(String channelName, String channelID, String URL, String fileDirectory, Connection conn) {
         this.channelName = channelName;
         this.channelID = channelID;
         this.URL = URL;
-        this.databaseAddress = databaseAddress;
         this.fileDirectory = fileDirectory;
+        this.conn = conn;
         this.archive = fileDirectory + "/" + channelName + "/archive.txt";
     }
 
-    public void fetchData() {
+    public void fetchData() throws IOException, InterruptedException {
         ProcessBuilder processBuilder = getProcessBuilder(this.archive, this.URL);
 
-        try {
-            Process process = processBuilder.start();
+        Process process = processBuilder.start();
 
-            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-            String line;
-            while ((line = reader.readLine()) != null) {
-                System.out.println(line);
-            }
-
-            int exitCode = process.waitFor();
-            System.out.println("Download finished with exit code: " + exitCode);
-
-        } catch (IOException e) {
-            System.out.println("An error occurred while running yt-dlp: " + e.getMessage());
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            System.out.println("Process was interrupted: " + e.getMessage());
+        BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+        String line;
+        while ((line = reader.readLine()) != null) {
+            System.out.println(line);
         }
+
+        int exitCode = process.waitFor();
+        System.out.println("Download finished with exit code: " + exitCode);
+
         updateArchive();
     }
 
@@ -74,20 +67,14 @@ public class Channel {
         return processBuilder;
     }
 
-    public void updateArchive() {
+    public void updateArchive() throws IOException {
         String directoryPath = fileDirectory + "/" + this.channelName;
         File dir = new File(directoryPath);
         File archiveFile = new File(this.archive);
-
-        try {
-            if (!archiveFile.exists()) {
-                archiveFile.getParentFile().mkdirs();
-                archiveFile.createNewFile();
-                System.out.println("Created new archive file at: " + this.archive);
-            }
-        } catch (IOException e) {
-            System.out.println("An error occurred while creating archive file: " + e.getMessage());
-            return;
+        if (!archiveFile.exists()) {
+            archiveFile.getParentFile().mkdirs();
+            archiveFile.createNewFile();
+            System.out.println("Created new archive file at: " + this.archive);
         }
 
         File metadataDir = new File(directoryPath, "metadata");
@@ -95,31 +82,29 @@ public class Channel {
         metadataDir.mkdirs();
         transcriptionsDir.mkdirs();
 
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(archiveFile, true))) {
-            for (File file : Objects.requireNonNull(dir.listFiles())) {
-                if (file.isFile() && file.getName().endsWith(".en.vtt")) {
-                    String baseName = file.getName().replace(".en.vtt", "");
-                    File jsonFile = new File(directoryPath, baseName + ".info.json");
+        BufferedWriter writer = new BufferedWriter(new FileWriter(archiveFile, true));
+        for (File file : Objects.requireNonNull(dir.listFiles())) {
+            if (file.isFile() && file.getName().endsWith(".en.vtt")) {
+                String baseName = file.getName().replace(".en.vtt", "");
+                File jsonFile = new File(directoryPath, baseName + ".info.json");
 
-                    if (jsonFile.exists()) {
-                        String id = extractVideoId(jsonFile);
-                        if (id != null) {
-                            File newJsonFile = new File(metadataDir, id + ".json");
-                            Files.move(jsonFile.toPath(), newJsonFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                if (jsonFile.exists()) {
+                    String id = extractVideoId(jsonFile);
+                    if (id != null) {
+                        File newJsonFile = new File(metadataDir, id + ".json");
+                        Files.move(jsonFile.toPath(), newJsonFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
 
-                            File newVttFile = new File(transcriptionsDir, id + ".vtt");
-                            Files.move(file.toPath(), newVttFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                        File newVttFile = new File(transcriptionsDir, id + ".vtt");
+                        Files.move(file.toPath(), newVttFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
 
-                            writer.write("youtube " + id);
-                            writer.newLine();
-                            System.out.println("Added to archive: youtube " + id);
-                        }
+                        writer.write("youtube " + id);
+                        writer.newLine();
+                        System.out.println("Added to archive: youtube " + id);
                     }
                 }
             }
-        } catch (IOException e) {
-            System.out.println("An error occurred: " + e.getMessage());
         }
+
 
         for (File file : Objects.requireNonNull(dir.listFiles())) {
             if (file.isFile() && file.getName().endsWith(".json")) {
@@ -149,7 +134,7 @@ public class Channel {
         return null;
     }
 
-    public int countVideos(Connection conn) {
+    public int countVideos() {
         String countQuery = "SELECT COUNT(*) FROM Videos WHERE channel = ?";
         try (PreparedStatement pstmt = conn.prepareStatement(countQuery)) {
             pstmt.setString(1, this.channelName);
@@ -163,7 +148,7 @@ public class Channel {
         return this.numVideos;
     }
 
-    public void updateDB(Connection conn) {
+    public void updateDB() {
         String upsertChannelQuery = """
                 INSERT INTO Channels (channelName, channelID, URL, numVideos)
                 VALUES (?, ?, ?, ?)

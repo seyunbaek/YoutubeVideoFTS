@@ -22,7 +22,7 @@ public class FillVideosTable {
                 String URL = rs.getString("URL");
 
                 // Create a Channel object and print its details
-                Channel channel = new Channel(channelName, channelID, URL, url, fileDirectory);
+                Channel channel = new Channel(channelName, channelID, URL, fileDirectory, conn);
                 System.out.println(channel);
                 // Access the 'transcriptions' folder for the channel
                 File transcriptionsDir = new File(fileDirectory + "/" + channelName + "/transcriptions");
@@ -38,11 +38,16 @@ public class FillVideosTable {
                             String videoID = vttFile.getName().replace(".vtt", "");
 
                             // Create an instance of Video for each VTT file
-                            Video video = new Video(channelName, videoID, url, fileDirectory);
+                            Video video = null;
+                            try {
+                                video = new Video(channelName, videoID, conn, fileDirectory);
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
                             System.out.println("Processing video: " + video);
 
                             // Use the shared connection to update or add the video in the database
-                            video.updateDB(conn);
+                            video.updateDB();
                         }
                     } else {
                         System.out.println("No .vtt files found in the transcriptions folder for channel: " + channelName);

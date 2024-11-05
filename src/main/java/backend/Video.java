@@ -20,12 +20,12 @@ public class Video {
     public int numLines;
     public String metadataFilePath;
     public String transcriptionFilePath;
-    private final String databaseAddress;
+    public Connection conn;
 
-    public Video(String channelName, String videoID, String databaseAddress, String fileDirectory) {
+    public Video(String channelName, String videoID, Connection conn, String fileDirectory) throws IOException, Exception{
         this.channelName = channelName;
         this.videoID = videoID;
-        this.databaseAddress = databaseAddress;
+        this.conn = conn;
         this.metadataFilePath = fileDirectory + "/" + channelName + "/metadata/" + videoID + ".json";
         this.transcriptionFilePath = fileDirectory + "/" + channelName + "/transcriptions/" + videoID + ".vtt";
 
@@ -33,43 +33,40 @@ public class Video {
         File transcriptionFile = new File(this.transcriptionFilePath);
 
         if (metadataFile.exists() && transcriptionFile.exists()) {
-            try (BufferedReader reader = new BufferedReader(new FileReader(metadataFile))) {
-                StringBuilder jsonContent = new StringBuilder();
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    jsonContent.append(line);
-                }
-                JSONObject jsonObject = new JSONObject(jsonContent.toString());
-                this.thumbnailURL = jsonObject.optString("thumbnail", null);
-                this.uploadDate = jsonObject.optString("upload_date", null);
-            } catch (IOException e) {
-                System.out.println("Could not read JSON file: " + metadataFile.getName());
-            } catch (Exception e) {
-                System.out.println("Error parsing JSON file: " + metadataFile.getName() + " - " + e.getMessage());
+            BufferedReader reader = new BufferedReader(new FileReader(metadataFile));
+            StringBuilder jsonContent = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                jsonContent.append(line);
             }
+            JSONObject jsonObject = new JSONObject(jsonContent.toString());
+            this.thumbnailURL = jsonObject.optString("thumbnail", null);
+            this.uploadDate = jsonObject.optString("upload_date", null);
         } else {
             System.out.println("Metadata or Transcription file does not exist");
         }
     }
 
-    public List<String[]> transcribe() {
+    public List<String[]> transcribe() throws IOException{
+        List<String[]> transcriptions = VTTProcessor.processVTT(this.transcriptionFilePath);
+        this.transcribed = true;
+        this.numLines = transcriptions.size();
+        return transcriptions;
+    }
+
+    public void index(FTSIndex index) throws SQLException {
+        index.indexVideo(videoID);
+        this.indexed = true;
         try {
-            List<String[]> transcriptions = VTTProcessor.processVTT(this.transcriptionFilePath);
-            this.transcribed = true;
-            this.numLines = transcriptions.size();
-            return transcriptions;
-        } catch (IOException e) {
+            updateDB();
+        } catch (SQLException e) {
             throw new RuntimeException(e);
         }
     }
 
-    public void index() {
-        System.out.println("Hello from index() method!");
-    }
-
-    public void updateDB(Connection conn) {
+    public void updateDB() throws SQLException {
         String upsertVideoQuery = """
-            INSERT INTO Videos (channel, videoID, thumnailURL, uploadDate, transcribed, indexed, numSentences)
+            INSERT INTO Videos (channel, videoID, thumnailURL, uploadDate, transcribed, indexed, numLines)
             VALUES (?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(videoID) DO UPDATE SET
                 channel = excluded.channel,
@@ -77,25 +74,20 @@ public class Video {
                 uploadDate = excluded.uploadDate,
                 transcribed = excluded.transcribed,
                 indexed = excluded.indexed,
-                numSentences = excluded.numSentences;
+                numLines = excluded.numLines;
             """;
 
-        try (PreparedStatement pstmt = conn.prepareStatement(upsertVideoQuery)) {
+        PreparedStatement pstmt = conn.prepareStatement(upsertVideoQuery);
 
-            pstmt.setString(1, channelName);
-            pstmt.setString(2, videoID);
-            pstmt.setString(3, thumbnailURL);
-            pstmt.setString(4, uploadDate);
-            pstmt.setInt(5, transcribed ? 1 : 0);
-            pstmt.setInt(6, indexed ? 1 : 0);
-            pstmt.setInt(7, numLines);
+        pstmt.setString(1, channelName);
+        pstmt.setString(2, videoID);
+        pstmt.setString(3, thumbnailURL);
+        pstmt.setString(4, uploadDate);
+        pstmt.setInt(5, transcribed ? 1 : 0);
+        pstmt.setInt(6, indexed ? 1 : 0);
+        pstmt.setInt(7, numLines);
 
-            pstmt.executeUpdate();
-            System.out.println("Video inserted/updated in the database: " + this);
-
-        } catch (SQLException e) {
-            System.out.println("Error inserting/updating video in database: " + e.getMessage());
-        }
+        pstmt.executeUpdate();
     }
 
     @Override
@@ -104,9 +96,9 @@ public class Video {
                 "channelName='" + channelName + '\'' +
                 ", videoID='" + videoID + '\'' +
                 ", uploadDate='" + uploadDate + '\'' +
-                ", transcribed=" + transcribed +
-                ", indexed=" + indexed +
-                ", numSentences=" + numLines +
+                ", transcribed=" + transcribed + '\'' +
+                ", indexed=" + indexed + '\'' +
+                ", numLines=" + numLines +
                 '}';
     }
 }
