@@ -1,11 +1,9 @@
-package operators;
+package supplement;
 
-import backend.Transcription;
 import backend.Video;
 import backend.FTSIndex;
 
 import java.sql.*;
-import java.util.List;
 
 public class IndexTranscriptions {
     public static void main(String[] args) {

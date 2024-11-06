@@ -75,8 +75,8 @@ import java.sql.*;
             return loadedIndex;
         }
 
-        public void indexVideo(String videoID) throws SQLException {
-            String selectQuery = "SELECT * FROM Transcriptions WHERE videoID = ? AND indexed = 0";
+        public void indexVideo(String videoID) throws SQLException, IOException {
+            String selectQuery = "SELECT * FROM Transcriptions WHERE videoID = ? AND indexed = 1";
             PreparedStatement pstmt = conn.prepareStatement(selectQuery);
             pstmt.setString(1, videoID);
             ResultSet rs = pstmt.executeQuery();
@@ -89,7 +89,7 @@ import java.sql.*;
                 Transcription transcription = new Transcription(videoID, transcriptionID, startTime, endTime, text);
                 indexTranscription(transcription);
             }
-
+            updateIndex();
             System.out.println("Indexing completed for video: " + videoID);
         }
 
@@ -130,7 +130,7 @@ import java.sql.*;
 
         public List<Transcription> search(String query) throws SQLException {
             List<String> queryTokens = preprocessText(query);
-            String searchQuery = "SELECT * FROM Transcriptions WHERE indexed = 1 AND rowid = ?";
+            String searchQuery = "SELECT * FROM Transcriptions WHERE indexed = 0 AND rowid = ?";
 
             if (queryTokens.isEmpty()) {
                 System.out.println("No valid search terms found.");

@@ -11,6 +11,8 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.IOException;
 import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 public class Channel {
@@ -22,17 +24,18 @@ public class Channel {
     private final String fileDirectory;
     private final Connection conn;
 
-    public Channel(String channelName, String channelID, String URL, String fileDirectory, Connection conn) {
+    public Channel(String channelName, String channelID, String URL, String fileDirectory, Connection conn, int numVideos) {
         this.channelName = channelName;
         this.channelID = channelID;
         this.URL = URL;
+        this.numVideos = numVideos;
         this.fileDirectory = fileDirectory;
         this.conn = conn;
         this.archive = fileDirectory + "/" + channelName + "/archive.txt";
     }
 
-    public void fetchData() throws IOException, InterruptedException {
-        ProcessBuilder processBuilder = getProcessBuilder(this.archive, this.URL);
+    public List<String> fetchData() throws IOException, InterruptedException {
+        ProcessBuilder processBuilder = getProcessBuilder(archive, URL);
 
         Process process = processBuilder.start();
 
@@ -41,11 +44,7 @@ public class Channel {
         while ((line = reader.readLine()) != null) {
             System.out.println(line);
         }
-
-        int exitCode = process.waitFor();
-        System.out.println("Download finished with exit code: " + exitCode);
-
-        updateArchive();
+        return updateArchive();
     }
 
     private static ProcessBuilder getProcessBuilder(String archive, String URL) {
@@ -54,6 +53,8 @@ public class Channel {
                 "--write-auto-sub",
                 "--sub-format", "vtt",
                 "--sub-lang", "en",
+                "--quiet",
+                "--no-warnings",
                 "--write-info-json",
                 "--skip-download",
                 "--download-archive", archive,
@@ -63,18 +64,18 @@ public class Channel {
         };
 
         ProcessBuilder processBuilder = new ProcessBuilder(command);
-        processBuilder.redirectErrorStream(true);
+        processBuilder.redirectErrorStream(false);
         return processBuilder;
     }
 
-    public void updateArchive() throws IOException {
-        String directoryPath = fileDirectory + "/" + this.channelName;
+    public List<String> updateArchive() throws IOException {
+        String directoryPath = fileDirectory + "/" + channelName;
         File dir = new File(directoryPath);
-        File archiveFile = new File(this.archive);
+        File archiveFile = new File(archive);
         if (!archiveFile.exists()) {
             archiveFile.getParentFile().mkdirs();
             archiveFile.createNewFile();
-            System.out.println("Created new archive file at: " + this.archive);
+            System.out.println("Created new archive file at: " + archive);
         }
 
         File metadataDir = new File(directoryPath, "metadata");
@@ -82,39 +83,41 @@ public class Channel {
         metadataDir.mkdirs();
         transcriptionsDir.mkdirs();
 
-        BufferedWriter writer = new BufferedWriter(new FileWriter(archiveFile, true));
-        for (File file : Objects.requireNonNull(dir.listFiles())) {
-            if (file.isFile() && file.getName().endsWith(".en.vtt")) {
-                String baseName = file.getName().replace(".en.vtt", "");
-                File jsonFile = new File(directoryPath, baseName + ".info.json");
+        List<String> newVideos = new ArrayList<>();
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(archiveFile, true))) {
+            for (File file : Objects.requireNonNull(dir.listFiles())) {
+                if (file.isFile() && file.getName().endsWith(".en.vtt")) {
+                    String baseName = file.getName().replace(".en.vtt", "");
+                    File jsonFile = new File(directoryPath, baseName + ".info.json");
 
-                if (jsonFile.exists()) {
-                    String id = extractVideoId(jsonFile);
-                    if (id != null) {
-                        File newJsonFile = new File(metadataDir, id + ".json");
-                        Files.move(jsonFile.toPath(), newJsonFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                    if (jsonFile.exists()) {
+                        String id = extractVideoId(jsonFile);
+                        if (id != null) {
+                            File newJsonFile = new File(metadataDir, id + ".json");
+                            Files.move(jsonFile.toPath(), newJsonFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
 
-                        File newVttFile = new File(transcriptionsDir, id + ".vtt");
-                        Files.move(file.toPath(), newVttFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                            File newVttFile = new File(transcriptionsDir, id + ".vtt");
+                            Files.move(file.toPath(), newVttFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
 
-                        writer.write("youtube " + id);
-                        writer.newLine();
-                        System.out.println("Added to archive: youtube " + id);
+                            writer.write("youtube " + id);
+                            writer.newLine();
+                            newVideos.add(id);
+                        }
                     }
                 }
             }
+        } catch (IOException e) {
+            System.err.println("Error writing to archive file: " + e.getMessage());
+            throw e;
         }
 
 
         for (File file : Objects.requireNonNull(dir.listFiles())) {
             if (file.isFile() && file.getName().endsWith(".json")) {
-                if (file.delete()) {
-                    System.out.println("Deleted remaining JSON file: " + file.getName());
-                } else {
-                    System.out.println("Failed to delete JSON file: " + file.getName());
-                }
+                file.delete();
             }
         }
+        return newVideos;
     }
 
     private String extractVideoId(File jsonFile) {

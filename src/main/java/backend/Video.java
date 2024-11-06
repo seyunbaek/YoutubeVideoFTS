@@ -47,14 +47,43 @@ public class Video {
         }
     }
 
-    public List<String[]> transcribe() throws IOException{
+    public void transcribe() throws IOException{
+        String insertTranscriptionQuery = "INSERT INTO Transcriptions (videoID, startTime, endTime, text, indexed) VALUES (?, ?, ?, ?, ?)";
+
         List<String[]> transcriptions = VTTProcessor.processVTT(this.transcriptionFilePath);
         this.transcribed = true;
         this.numLines = transcriptions.size();
-        return transcriptions;
+        try {
+            updateDB();
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+
+        try (PreparedStatement insertStmt = conn.prepareStatement(insertTranscriptionQuery)) {
+            for (String[] transcription : transcriptions) {
+                String startTime = transcription[0];
+                String endTime = transcription[1];
+                String text = transcription[2];
+
+                // Convert startTime and endTime to integer seconds (rounded)
+                int startSeconds = (int) Math.round(Double.parseDouble(startTime.replace("s", "")));
+                int endSeconds = (int) Math.round(Double.parseDouble(endTime.replace("s", "")));
+
+                insertStmt.setString(1, videoID);
+                insertStmt.setInt(2, startSeconds);
+                insertStmt.setInt(3, endSeconds);
+                insertStmt.setString(4, text);
+                insertStmt.setBoolean(5, false);
+                insertStmt.addBatch(); // Use batch processing for efficiency
+            }
+            insertStmt.executeBatch();
+            System.out.println("Inserted transcriptions for videoID: " + videoID);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
     }
 
-    public void index(FTSIndex index) throws SQLException {
+    public void index(FTSIndex index) throws SQLException, IOException {
         index.indexVideo(videoID);
         this.indexed = true;
         try {
@@ -83,8 +112,8 @@ public class Video {
         pstmt.setString(2, videoID);
         pstmt.setString(3, thumbnailURL);
         pstmt.setString(4, uploadDate);
-        pstmt.setInt(5, transcribed ? 1 : 0);
-        pstmt.setInt(6, indexed ? 1 : 0);
+        pstmt.setBoolean(5, transcribed);
+        pstmt.setBoolean(6, indexed);
         pstmt.setInt(7, numLines);
 
         pstmt.executeUpdate();

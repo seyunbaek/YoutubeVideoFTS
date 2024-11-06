@@ -43,7 +43,7 @@ public class Transcription {
             pstmt.setInt(3, startTime);
             pstmt.setInt(4, endTime);
             pstmt.setString(5, text);
-            pstmt.setInt(6, indexed ? 1 : 0);
+            pstmt.setBoolean(6, indexed);
             pstmt.executeUpdate();
         }
     }

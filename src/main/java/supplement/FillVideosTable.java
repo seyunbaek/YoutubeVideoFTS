@@ -1,15 +1,17 @@
-package operators;
+package supplement;
 
 import java.sql.*;
 import java.io.File;
 import backend.Channel;
+import backend.FTSIndex;
 import backend.Video;
 
 public class FillVideosTable {
     public static void main(String[] args) {
-        String url = "jdbc:sqlite:Data/Test/testDB.db";
-        String fileDirectory = "Data/Test";
-        String query = "SELECT channelName, channelID, URL, numVideos FROM Channels";
+        String url = "jdbc:sqlite:Data/database.db";
+        String fileDirectory = "Data/Files";
+        String query = "SELECT * FROM Channels";
+        String indexPath = "Data/FTSIndex.json";
 
         try (Connection conn = DriverManager.getConnection(url);
              Statement stmt = conn.createStatement();
@@ -20,9 +22,10 @@ public class FillVideosTable {
                 String channelName = rs.getString("channelName");
                 String channelID = rs.getString("channelID");
                 String URL = rs.getString("URL");
+                int numVideos = rs.getInt("numVideos");
 
                 // Create a Channel object and print its details
-                Channel channel = new Channel(channelName, channelID, URL, fileDirectory, conn);
+                Channel channel = new Channel(channelName, channelID, URL, fileDirectory, conn, numVideos);
                 System.out.println(channel);
                 // Access the 'transcriptions' folder for the channel
                 File transcriptionsDir = new File(fileDirectory + "/" + channelName + "/transcriptions");
@@ -39,11 +42,7 @@ public class FillVideosTable {
 
                             // Create an instance of Video for each VTT file
                             Video video = null;
-                            try {
-                                video = new Video(channelName, videoID, conn, fileDirectory);
-                            } catch (Exception e) {
-                                throw new RuntimeException(e);
-                            }
+                            video = new Video(channelName, videoID, conn, fileDirectory);
                             System.out.println("Processing video: " + video);
 
                             // Use the shared connection to update or add the video in the database
@@ -57,8 +56,8 @@ public class FillVideosTable {
                 }
             }
 
-        } catch (SQLException e) {
-            System.out.println("Database error: " + e.getMessage());
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
     }
 }
