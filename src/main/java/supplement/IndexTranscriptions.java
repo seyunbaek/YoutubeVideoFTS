@@ -20,6 +20,7 @@ public class IndexTranscriptions {
                     String channel = rs.getString("channel");
                     String videoID = rs.getString("videoID");
                     Video video = new Video(channel, videoID, conn, fileDirectory);
+                    System.out.println(video);
                     video.index(index);
                 }
                 index.updateIndex();

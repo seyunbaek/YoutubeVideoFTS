@@ -76,7 +76,7 @@ import java.sql.*;
         }
 
         public void indexVideo(String videoID) throws SQLException, IOException {
-            String selectQuery = "SELECT * FROM Transcriptions WHERE videoID = ? AND indexed = 1";
+            String selectQuery = "SELECT * FROM Transcriptions WHERE videoID = ? AND indexed = 0";
             PreparedStatement pstmt = conn.prepareStatement(selectQuery);
             pstmt.setString(1, videoID);
             ResultSet rs = pstmt.executeQuery();
@@ -128,9 +128,9 @@ import java.sql.*;
             return processedTokens;
         }
 
-        public List<Transcription> search(String query) throws SQLException {
+        public List<VideoSearchResult> search(String query) throws Exception {
             List<String> queryTokens = preprocessText(query);
-            String searchQuery = "SELECT * FROM Transcriptions WHERE indexed = 0 AND rowid = ?";
+            Map<String, List<Transcription>> videoTranscriptions = new HashMap<>();
 
             if (queryTokens.isEmpty()) {
                 System.out.println("No valid search terms found.");
@@ -146,9 +146,10 @@ import java.sql.*;
                 resultDocs.retainAll(new HashSet<>(tokenDocs));
             }
 
-            // Format results
-            List<Transcription> searchResults = new ArrayList<>();
+            // Group transcriptions by videoID
+            String searchQuery = "SELECT * FROM Transcriptions WHERE id = ? ORDER BY startTime ASC";
             PreparedStatement pstmt = conn.prepareStatement(searchQuery);
+
             for (Integer rowID : resultDocs) {
                 pstmt.setInt(1, rowID);
                 ResultSet rs = pstmt.executeQuery();
@@ -159,9 +160,45 @@ import java.sql.*;
                     int endTime = rs.getInt("endTime");
                     int transcriptionID = rs.getInt("id");
                     Transcription transcription = new Transcription(videoID, transcriptionID, startTime, endTime, text);
-                    searchResults.add(transcription);
+
+                    videoTranscriptions.computeIfAbsent(videoID, k -> new ArrayList<>())
+                            .add(transcription);
                 }
             }
+
+            // Get video metadata for each group
+            List<VideoSearchResult> searchResults = new ArrayList<>();
+            String videoQuery = "SELECT * FROM Videos WHERE videoID = ?";
+            PreparedStatement videoStmt = conn.prepareStatement(videoQuery);
+
+            for (Map.Entry<String, List<Transcription>> entry : videoTranscriptions.entrySet()) {
+                String videoID = entry.getKey();
+                List<Transcription> transcriptions = entry.getValue();
+
+                // Sort transcriptions by startTime
+                transcriptions.sort(Comparator.comparingInt(t -> t.startTime));
+
+                // Get video metadata
+                videoStmt.setString(1, videoID);
+                ResultSet rs = videoStmt.executeQuery();
+
+                if (rs.next()) {
+                    Video video = new Video(
+                            rs.getString("channel"),
+                            videoID,
+                            conn,
+                            "Data/Files"  // You might want to make this configurable
+                    );
+                    searchResults.add(new VideoSearchResult(video, transcriptions));
+                }
+            }
+
+            // Sort results by the earliest matching transcription
+            searchResults.sort((a, b) -> {
+                int timeA = a.transcriptions.get(0).startTime;
+                int timeB = b.transcriptions.get(0).startTime;
+                return Integer.compare(timeA, timeB);
+            });
 
             return searchResults;
         }

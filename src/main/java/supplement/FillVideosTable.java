@@ -25,7 +25,7 @@ public class FillVideosTable {
                 int numVideos = rs.getInt("numVideos");
 
                 // Create a Channel object and print its details
-                Channel channel = new Channel(channelName, channelID, URL, fileDirectory, conn, numVideos);
+                Channel channel = new Channel(channelName, URL, fileDirectory, conn, numVideos);
                 System.out.println(channel);
                 // Access the 'transcriptions' folder for the channel
                 File transcriptionsDir = new File(fileDirectory + "/" + channelName + "/transcriptions");

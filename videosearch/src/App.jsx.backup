@@ -1,0 +1,729 @@
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Link, useNavigate } from 'react-router-dom';
+import { Menu, Search, Edit2, Trash2, RefreshCw, ArrowLeft, Clock } from 'lucide-react';
+
+const Logo = ({ className = "text-4xl", onClick }) => (
+  <div 
+    className={`font-semibold ${className} ${onClick ? 'cursor-pointer' : ''}`}
+    onClick={onClick}
+  >
+    <span className="text-blue-500">V</span>
+    <span className="text-red-500">i</span>
+    <span className="text-yellow-500">d</span>
+    <span className="text-blue-500">e</span>
+    <span className="text-green-500">o</span>
+    <span className="text-red-500">Search</span>
+  </div>
+);
+const HomePage = ({ searchQuery, setSearchQuery, handleSearch, isSearching }) => {
+  const navigate = useNavigate();
+  
+  const onSubmit = async (e) => {
+    e.preventDefault();
+    await handleSearch(e);
+    navigate('/search');
+  };
+
+  return (
+    <div className="flex flex-col min-h-screen">
+      <div className="absolute top-4 left-4">
+        <button 
+          onClick={() => navigate('/channels')}
+          className="p-2 rounded-lg hover:bg-gray-100"
+        >
+          <Menu className="h-6 w-6" />
+        </button>
+      </div>
+      
+      <div className="flex-1 flex flex-col items-center justify-center -mt-32">
+        <div className="mb-8">
+          <Logo />
+        </div>
+
+        <div className="w-full max-w-xl px-4">
+          <form onSubmit={onSubmit}>
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search transcripts..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full h-12 px-6 rounded-full border-2 hover:shadow-md focus:shadow-md transition-shadow outline-none"
+              />
+              <button 
+                type="submit"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full hover:bg-gray-100"
+                disabled={isSearching}
+              >
+                <Search className="h-5 w-5 text-gray-500" />
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const SearchResultsPage = ({ 
+  searchQuery, 
+  setSearchQuery, 
+  handleSearch, 
+  searchResults, 
+  isSearching,
+  formatUploadDate,
+  highlightSearchTerm 
+}) => {
+  const navigate = useNavigate();
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
+  const totalResults = searchResults.length;
+  const totalPages = Math.ceil(totalResults / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentResults = searchResults.slice(startIndex, endIndex);
+
+  const handlePageChange = (pageNumber) => {
+    setCurrentPage(pageNumber);
+    window.scrollTo(0, 0);
+  };
+
+  const resetSearch = () => {
+    setSearchQuery('');
+    navigate('/');
+  };
+
+  return (
+    <div className="max-w-4xl mx-auto">
+      <div className="sticky top-0 bg-white border-b">
+        <div className="flex items-center gap-4 p-4">
+          <button 
+            className="p-2 rounded-lg hover:bg-gray-100"
+            onClick={resetSearch}
+          >
+            <ArrowLeft className="h-6 w-6" />
+          </button>
+
+          <div className="mr-4">
+            <Logo className="text-xl" onClick={resetSearch} />
+          </div>
+
+          <div className="flex-1 flex gap-2">
+            <input
+              type="text"
+              placeholder="Search transcripts..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="flex-1 h-10 px-4 rounded-full border hover:border-gray-400 focus:outline-none focus:border-blue-500"
+            />
+            <button 
+              onClick={handleSearch}
+              className="p-2 rounded-full hover:bg-gray-100"
+              disabled={isSearching}
+            >
+              <Search className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="p-4">
+        <div className="text-sm text-gray-500 mb-4">
+          Found matches in {totalResults} videos
+        </div>
+        <div className="space-y-8">
+          {currentResults.map((video) => (
+            <div key={video.videoID} className="flex gap-4">
+              <div className="w-80">
+                <a 
+                  href={`https://youtu.be/${video.videoID}`} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="block rounded-lg overflow-hidden hover:opacity-90 transition-opacity"
+                >
+                  <img 
+                    src={video.thumbnailURL} 
+                    alt={video.title}
+                    className="w-full aspect-video object-cover"
+                  />
+                </a>
+              </div>
+              <div className="flex-1">
+                <h3 className="text-xl text-blue-600 hover:underline">
+                  <a 
+                    href={`https://youtu.be/${video.videoID}`}
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                  >
+                    {video.title}
+                  </a>
+                </h3>
+                <p className="text-sm text-gray-600 mb-2">
+                  {video.channelName} • {formatUploadDate(video.uploadDate)}
+                </p>
+                <div className="space-y-2">
+                  {video.matches.map((match) => (
+                    <div key={match.transcriptionID} className="group">
+                      <a 
+                        href={`https://youtu.be/${video.videoID}?t=${match.startTime}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center text-sm text-gray-500 hover:text-blue-500 mb-1"
+                      >
+                        <Clock className="h-4 w-4 mr-1" />
+                        {Math.floor(match.startTime / 60)}:{(match.startTime % 60).toString().padStart(2, '0')}
+                      </a>
+                      <p className="text-sm text-gray-700">
+                        {highlightSearchTerm(match.text, searchQuery)}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {totalPages > 1 && (
+          <div className="flex justify-center items-center gap-2 mt-8">
+            <button
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:hover:bg-transparent"
+            >
+              Previous
+            </button>
+            
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+              <button
+                key={pageNum}
+                onClick={() => handlePageChange(pageNum)}
+                className={`w-10 h-10 rounded-lg ${
+                  currentPage === pageNum
+                    ? 'bg-blue-500 text-white'
+                    : 'hover:bg-gray-100'
+                }`}
+              >
+                {pageNum}
+              </button>
+            ))}
+            
+            <button
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:hover:bg-transparent"
+            >
+              Next
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const SubscriptionListPage = ({ 
+  subscriptions,
+  editingChannel,
+  isLoading,
+  isRefreshingAll,
+  loadingChannels,
+  errorMessage,
+  newChannelUrl,
+  handleRefreshAll,
+  handleRefreshChannel,
+  handleEditChannel,
+  handleDeleteChannel,
+  handleSaveChannel,
+  setEditingChannel,
+  setErrorMessage,
+  setNewChannelUrl,
+  handleAddChannel
+}) => {
+  return (
+    <div className="max-w-4xl mx-auto bg-white rounded-xl border shadow">
+      <div className="p-6">
+        <div className="flex items-center gap-4 mb-6">
+          <Link 
+            to="/"
+            className="p-2 rounded-lg hover:bg-gray-100"
+          >
+            <ArrowLeft className="h-6 w-6" />
+          </Link>
+          <h2 className="text-xl font-semibold">Channel List</h2>
+          <div className="flex-1 flex justify-end">
+            <button 
+              className="px-3 py-2 text-sm border rounded-lg hover:bg-gray-50 flex items-center gap-2"
+              onClick={handleRefreshAll}
+              disabled={isRefreshingAll}
+            >
+              <RefreshCw className={`h-4 w-4 ${isRefreshingAll ? 'animate-spin' : ''}`} />
+              {isRefreshingAll ? 'Refreshing...' : 'Refresh All'}
+            </button>
+          </div>
+        </div>
+
+        {errorMessage && (
+          <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg">
+            {errorMessage}
+            <button 
+              className="float-right text-sm"
+              onClick={() => setErrorMessage('')}
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
+        <div className="space-y-2">
+          {subscriptions.map((subscription) => (
+            <div key={subscription.channelID} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
+              {editingChannel?.channelID === subscription.channelID ? (
+                <div className="flex-1 flex gap-4 items-center">
+                  <div className="space-y-2 flex-1">
+                    <input
+                      type="text"
+                      value={editingChannel.newName}
+                      onChange={(e) => setEditingChannel({
+                        ...editingChannel,
+                        newName: e.target.value
+                      })}
+                      placeholder="Channel name"
+                      className="w-full px-3 py-2 border rounded-md focus:outline-none focus:border-blue-500"
+                      disabled={isLoading}
+                    />
+                    <input
+                      type="text"
+                      value={editingChannel.newUrl}
+                      onChange={(e) => setEditingChannel({
+                        ...editingChannel,
+                        newUrl: e.target.value
+                      })}
+                      placeholder="Channel URL"
+                      className="w-full px-3 py-2 border rounded-md focus:outline-none focus:border-blue-500"
+                      disabled={isLoading}
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <button 
+                      className="px-3 py-1 text-sm border rounded-md hover:bg-gray-50"
+                      onClick={handleSaveChannel}
+                      disabled={isLoading}
+                    >
+                      Save
+                    </button>
+                    <button 
+                      className="px-3 py-1 text-sm hover:bg-gray-100 rounded-md"
+                      onClick={() => setEditingChannel(null)}
+                      disabled={isLoading}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <h3 className="font-medium">{subscription.channelName}</h3>
+                    <p className="text-sm text-gray-500">
+                      {subscription.numVideos} videos indexed
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button 
+                      className="p-2 rounded-lg hover:bg-gray-100"
+                      onClick={() => handleRefreshChannel(subscription.channelID)}
+                      disabled={loadingChannels[subscription.channelID] || isRefreshingAll}
+                    >
+                      <RefreshCw className={`h-4 w-4 ${loadingChannels[subscription.channelID] ? 'animate-spin' : ''}`} />
+                    </button>
+                    <button 
+                      className="p-2 rounded-lg hover:bg-gray-100"
+                      onClick={() => handleEditChannel(subscription)}
+                      disabled={loadingChannels[subscription.channelID] || isRefreshingAll}
+                    >
+                      <Edit2 className="h-4 w-4" />
+                    </button>
+                    <button 
+                      className="p-2 rounded-lg hover:bg-gray-100 text-red-500"
+                      onClick={() => handleDeleteChannel(subscription.channelID)}
+                      disabled={loadingChannels[subscription.channelID] || isRefreshingAll}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <form onSubmit={handleAddChannel} className="mt-6 flex gap-2">
+          <input
+            type="text"
+            value={newChannelUrl}
+            onChange={(e) => setNewChannelUrl(e.target.value)}
+            placeholder="Add new channel URL"
+            className="flex-1 px-3 py-2 border rounded-md focus:outline-none focus:border-blue-500"
+            disabled={isLoading}
+          />
+          <button 
+            type="submit"
+            className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50"
+            disabled={isLoading || !newChannelUrl.trim()}
+          >
+            {isLoading ? 'Adding...' : 'Add'}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+const AppRoutes = ({ searchQuery, setSearchQuery, handleSearch, isSearching, ...props }) => {
+  return (
+    <Routes>
+      <Route 
+        path="/" 
+        element={
+          <HomePage 
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            handleSearch={handleSearch}
+            isSearching={isSearching}
+          />
+        } 
+      />
+      <Route 
+        path="/search" 
+        element={<SearchResultsPage {...props} />} 
+      />
+      <Route 
+        path="/channels" 
+        element={<SubscriptionListPage {...props} />} 
+      />
+    </Routes>
+  );
+};
+
+const VideoSearchApp = () => {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+  const [subscriptions, setSubscriptions] = useState([]);
+  const [editingChannel, setEditingChannel] = useState(null);
+  const [newChannelUrl, setNewChannelUrl] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [loadingChannels, setLoadingChannels] = useState({});
+  const [isRefreshingAll, setIsRefreshingAll] = useState(false);
+
+  useEffect(() => {
+    fetchChannels();
+  }, []);
+
+  const fetchChannels = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch('http://localhost:8080/api/channels');
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data = await response.json();
+      setSubscriptions(data);
+    } catch (error) {
+      console.error('Error fetching channels:', error);
+      setErrorMessage('Failed to load channels: ' + error.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const formatUploadDate = (dateString) => {
+    if (!dateString) return '';
+    
+    if (dateString.match(/^\d{8}$/)) {
+      const year = dateString.substring(0, 4);
+      const month = dateString.substring(4, 6);
+      const day = dateString.substring(6, 8);
+      return new Date(`${year}-${month}-${day}`).toLocaleDateString();
+    }
+    
+    const date = new Date(dateString);
+    return date.getTime() ? date.toLocaleDateString() : '';
+  };
+
+  const getDateValue = (dateString) => {
+    if (!dateString) return 0;
+    
+    if (dateString.match(/^\d{8}$/)) {
+      const year = dateString.substring(0, 4);
+      const month = dateString.substring(4, 6);
+      const day = dateString.substring(6, 8);
+      return new Date(`${year}-${month}-${day}`).getTime();
+    }
+    
+    return new Date(dateString).getTime() || 0;
+  };
+
+  const handleSearch = async (e) => {
+    e.preventDefault();
+    if (!searchQuery.trim()) return;
+
+    setIsSearching(true);
+    try {
+      const response = await fetch(`http://localhost:8080/api/search?q=${encodeURIComponent(searchQuery)}`, {
+        method: 'GET',
+      });
+      const data = await response.json();
+      
+      if (data.success) {
+        const sortedResults = data.results.sort((a, b) => {
+          return getDateValue(b.uploadDate) - getDateValue(a.uploadDate);
+        });
+        setSearchResults(sortedResults);
+      } else {
+        setErrorMessage(data.error || 'Search failed');
+      }
+    } catch (error) {
+      console.error('Error performing search:', error);
+      setErrorMessage('Failed to perform search');
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleAddChannel = async (e) => {
+    e.preventDefault();
+    if (!newChannelUrl.trim()) return;
+
+    setIsLoading(true);
+    try {
+      const response = await fetch('http://localhost:8080/api/channels', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ URL: newChannelUrl }),
+      });
+      const data = await response.json();
+      
+      if (data.success) {
+        setNewChannelUrl('');
+        fetchChannels();
+      } else {
+        setErrorMessage(data.message);
+      }
+    } catch (error) {
+      console.error('Error adding channel:', error);
+      setErrorMessage('Failed to add channel');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleEditChannel = (channel) => {
+    setEditingChannel({
+      ...channel,
+      newName: channel.channelName,
+      newUrl: channel.URL
+    });
+  };
+
+  const handleSaveChannel = async () => {
+    if (!editingChannel) return;
+
+    setIsLoading(true);
+    try {
+      const response = await fetch(`http://localhost:8080/api/channels/${editingChannel.channelID}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          channelName: editingChannel.newName,
+          URL: editingChannel.newUrl,
+        }),
+      });
+      const data = await response.json();
+      
+      if (data.success) {
+        setEditingChannel(null);
+        fetchChannels();
+      } else {
+        setErrorMessage(data.message);
+      }
+    } catch (error) {
+      console.error('Error updating channel:', error);
+      setErrorMessage('Failed to update channel');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDeleteChannel = async (channelID) => {
+    if (!window.confirm('Are you sure you want to delete this channel?')) return;
+
+    setIsLoading(true);
+    try {
+      const response = await fetch(`http://localhost:8080/api/channels/${channelID}`, {
+        method: 'DELETE',
+      });
+      const data = await response.json();
+      
+      if (data.success) {
+        fetchChannels();
+      } else {
+        setErrorMessage(data.message);
+      }
+    } catch (error) {
+      console.error('Error deleting channel:', error);
+      setErrorMessage('Failed to delete channel');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRefreshAll = async () => {
+    setIsRefreshingAll(true);
+    try {
+      const response = await fetch('http://localhost:8080/api/channels/refresh-all', {
+        method: 'POST',
+      });
+      const data = await response.json();
+      
+      if (data.success) {
+        await fetchChannels();
+      } else {
+        setErrorMessage(data.message);
+      }
+    } catch (error) {
+      console.error('Error refreshing channels:', error);
+      setErrorMessage('Failed to refresh channels');
+    } finally {
+      setIsRefreshingAll(false);
+    }
+  };
+
+  const handleRefreshChannel = async (channelID) => {
+    setLoadingChannels(prev => ({ ...prev, [channelID]: true }));
+    try {
+      const response = await fetch(`http://localhost:8080/api/channels/refresh/${channelID}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+      const data = await response.json();
+      
+      if (data.success) {
+        await fetchChannels();
+      } else {
+        setErrorMessage(data.message || 'Failed to refresh channel');
+      }
+    } catch (error) {
+      console.error('Error refreshing channel:', error);
+      setErrorMessage('Failed to refresh channel');
+    } finally {
+      setLoadingChannels(prev => ({ ...prev, [channelID]: false }));
+    }
+  };
+
+  const highlightSearchTerm = (text, searchTerm) => {
+    if (!searchTerm) return text;
+    const parts = text.split(new RegExp(`(${searchTerm})`, 'gi'));
+    return parts.map((part, i) => 
+      part.toLowerCase() === searchTerm.toLowerCase() 
+        ? <span key={i} className="bg-yellow-200">{part}</span>
+        : part
+    );
+  };
+
+  const AppRoutes = () => {
+    return (
+      <Routes>
+        <Route 
+          path="/" 
+          element={
+            <HomePage 
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              handleSearch={handleSearch}
+              isSearching={isSearching}
+            />
+          } 
+        />
+        <Route 
+          path="/search" 
+          element={
+            <SearchResultsPage 
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              handleSearch={handleSearch}
+              searchResults={searchResults}
+              isSearching={isSearching}
+              formatUploadDate={formatUploadDate}
+              highlightSearchTerm={highlightSearchTerm}
+            />
+          } 
+        />
+        <Route 
+          path="/channels" 
+          element={
+            <SubscriptionListPage 
+              subscriptions={subscriptions}
+              editingChannel={editingChannel}
+              isLoading={isLoading}
+              isRefreshingAll={isRefreshingAll}
+              loadingChannels={loadingChannels}
+              errorMessage={errorMessage}
+              newChannelUrl={newChannelUrl}
+              handleRefreshAll={handleRefreshAll}
+              handleRefreshChannel={handleRefreshChannel}
+              handleEditChannel={handleEditChannel}
+              handleDeleteChannel={handleDeleteChannel}
+              handleSaveChannel={handleSaveChannel}
+              setEditingChannel={setEditingChannel}
+              setErrorMessage={setErrorMessage}
+              setNewChannelUrl={setNewChannelUrl}
+              handleAddChannel={handleAddChannel}
+            />
+          } 
+        />
+      </Routes>
+    );
+  };
+
+  return (
+    <BrowserRouter>
+      <div className="min-h-screen bg-white p-4">
+        <AppRoutes 
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          handleSearch={handleSearch}
+          isSearching={isSearching}
+          subscriptions={subscriptions}
+          editingChannel={editingChannel}
+          isLoading={isLoading}
+          isRefreshingAll={isRefreshingAll}
+          loadingChannels={loadingChannels}
+          errorMessage={errorMessage}
+          newChannelUrl={newChannelUrl}
+          searchResults={searchResults}
+          setEditingChannel={setEditingChannel}
+          setErrorMessage={setErrorMessage}
+          setNewChannelUrl={setNewChannelUrl}
+          handleRefreshAll={handleRefreshAll}
+          handleRefreshChannel={handleRefreshChannel}
+          handleEditChannel={handleEditChannel}
+          handleDeleteChannel={handleDeleteChannel}
+          handleSaveChannel={handleSaveChannel}
+          handleAddChannel={handleAddChannel}
+        />
+      </div>
+    </BrowserRouter>
+  );
+};
+
+export default VideoSearchApp;

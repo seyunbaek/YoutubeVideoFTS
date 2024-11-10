@@ -24,9 +24,9 @@ public class Channel {
     private final String fileDirectory;
     private final Connection conn;
 
-    public Channel(String channelName, String channelID, String URL, String fileDirectory, Connection conn, int numVideos) {
+    public Channel(String channelName, String URL, String fileDirectory, Connection conn, int numVideos) {
         this.channelName = channelName;
-        this.channelID = channelID;
+        this.channelID = URL.substring(URL.lastIndexOf("@"));
         this.URL = URL;
         this.numVideos = numVideos;
         this.fileDirectory = fileDirectory;

@@ -9,7 +9,7 @@ CREATE TABLE "Channels" (
 CREATE TABLE "Videos" (
 	"channel"	TEXT,
 	"videoID"	TEXT,
-	"thumnailURL"	TEXT,
+	"thumbnailURL"	TEXT,
 	"uploadDate"	TEXT,
 	"transcribed"	INTEGER,
 	"indexed"	INTEGER,

@@ -1,0 +1,27 @@
+import * as React from "react"
+import { cn } from "@/lib/utils"
+
+const Input = React.forwardRef(({ 
+  className, 
+  type = "text",
+  value,
+  onChange,
+  ...props 
+}, ref) => {
+  return (
+    <input
+      type={type}
+      value={value}
+      onChange={onChange}
+      className={cn(
+        "flex h-9 w-full rounded-md border bg-background px-3 py-1 text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
+        className
+      )}
+      ref={ref}
+      {...props}
+    />
+  )
+})
+Input.displayName = "Input"
+
+export { Input }

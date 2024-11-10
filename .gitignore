@@ -4,6 +4,8 @@ target/
 !**/src/test/**/target/
 Data/Files
 Data/Test
+Data/Backup/database.db
+Data/Backup/FTSIndex.json
 ### IntelliJ IDEA ###
 .idea
 .idea/modules.xml
@@ -38,3 +40,28 @@ build/
 
 ### Mac OS ###
 .DS_Store
+
+# Logs
+videosearch/logs
+videosearch/*.log
+videosearch/npm-debug.log*
+videosearch/yarn-debug.log*
+videosearch/yarn-error.log*
+videosearch/pnpm-debug.log*
+videosearch/lerna-debug.log*
+
+videosearch/node_modules
+videosearch/dist
+videosearch/dist-ssr
+videosearch/*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

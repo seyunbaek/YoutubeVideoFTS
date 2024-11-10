@@ -17,7 +17,7 @@ public class FillTranscriptionsTable {
 
         try (Connection conn = DriverManager.getConnection(url)) {
             if (conn != null) {
-                FTSIndex index = new FTSIndex(indexPath, conn);
+//                FTSIndex index = new FTSIndex(indexPath, conn);
                 // Step 1: Retrieve all untranscribed videos from the Videos table
                 try (PreparedStatement selectStmt = conn.prepareStatement(selectVideosQuery);
                      ResultSet rs = selectStmt.executeQuery()) {
@@ -28,7 +28,8 @@ public class FillTranscriptionsTable {
 
                         // Step 2: Create Video instance and transcribe
                         Video video = new Video(channelName, videoID, conn, fileDirectory);
-                        video.transcribe();
+//                        video.transcribe();
+                        video.updateDB();
                         System.out.println(video);
                     }
                 } catch (SQLException e) {

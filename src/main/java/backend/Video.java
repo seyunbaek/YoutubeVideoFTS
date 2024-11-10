@@ -13,6 +13,7 @@ import java.util.List;
 public class Video {
     public final String channelName;
     public String videoID;
+    public String videoTitle;
     public String uploadDate;
     public String thumbnailURL;
     public Boolean transcribed = false;
@@ -42,6 +43,7 @@ public class Video {
             JSONObject jsonObject = new JSONObject(jsonContent.toString());
             this.thumbnailURL = jsonObject.optString("thumbnail", null);
             this.uploadDate = jsonObject.optString("upload_date", null);
+            this.videoTitle = jsonObject.optString("title", null);
         } else {
             System.out.println("Metadata or Transcription file does not exist");
         }
@@ -95,11 +97,12 @@ public class Video {
 
     public void updateDB() throws SQLException {
         String upsertVideoQuery = """
-            INSERT INTO Videos (channel, videoID, thumnailURL, uploadDate, transcribed, indexed, numLines)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO Videos (channel, videoID, videoTitle, thumbnailURL, uploadDate, transcribed, indexed, numLines)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(videoID) DO UPDATE SET
                 channel = excluded.channel,
-                thumnailURL = excluded.thumnailURL,
+                videoTitle = excluded.videoTitle,
+                thumbnailURL = excluded.thumbnailURL,
                 uploadDate = excluded.uploadDate,
                 transcribed = excluded.transcribed,
                 indexed = excluded.indexed,
@@ -110,11 +113,12 @@ public class Video {
 
         pstmt.setString(1, channelName);
         pstmt.setString(2, videoID);
-        pstmt.setString(3, thumbnailURL);
-        pstmt.setString(4, uploadDate);
-        pstmt.setBoolean(5, transcribed);
-        pstmt.setBoolean(6, indexed);
-        pstmt.setInt(7, numLines);
+        pstmt.setString(3, videoTitle);
+        pstmt.setString(4, thumbnailURL);
+        pstmt.setString(5, uploadDate);
+        pstmt.setBoolean(6, transcribed);
+        pstmt.setBoolean(7, indexed);
+        pstmt.setInt(8, numLines);
 
         pstmt.executeUpdate();
     }
@@ -124,6 +128,7 @@ public class Video {
         return "Video{" +
                 "channelName='" + channelName + '\'' +
                 ", videoID='" + videoID + '\'' +
+                ", videoTitle='" + videoTitle + '\'' +
                 ", uploadDate='" + uploadDate + '\'' +
                 ", transcribed=" + transcribed + '\'' +
                 ", indexed=" + indexed + '\'' +
