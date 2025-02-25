@@ -22,15 +22,13 @@ public class Channel {
     public int numVideos;
     public final String archive;
     private final String fileDirectory;
-    private final Connection conn;
 
-    public Channel(String channelName, String URL, String fileDirectory, Connection conn, int numVideos) {
+    public Channel(String channelName, String URL, String fileDirectory, int numVideos) {
         this.channelName = channelName;
         this.channelID = URL.substring(URL.lastIndexOf("@"));
         this.URL = URL;
         this.numVideos = numVideos;
         this.fileDirectory = fileDirectory;
-        this.conn = conn;
         this.archive = fileDirectory + "/" + channelName + "/archive.txt";
     }
 
@@ -84,6 +82,7 @@ public class Channel {
         transcriptionsDir.mkdirs();
 
         List<String> newVideos = new ArrayList<>();
+
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(archiveFile, true))) {
             for (File file : Objects.requireNonNull(dir.listFiles())) {
                 if (file.isFile() && file.getName().endsWith(".en.vtt")) {
@@ -106,16 +105,18 @@ public class Channel {
                     }
                 }
             }
+            for (File file : Objects.requireNonNull(dir.listFiles())) {
+                if (file.isFile() && file.getName().endsWith(".json")) {
+                    if (!file.getName().startsWith(channelName)) {
+                        writer.write("youtube " + extractVideoId(file));
+                        writer.newLine();
+                    }
+                    file.delete();
+                }
+            }
         } catch (IOException e) {
             System.err.println("Error writing to archive file: " + e.getMessage());
             throw e;
-        }
-
-
-        for (File file : Objects.requireNonNull(dir.listFiles())) {
-            if (file.isFile() && file.getName().endsWith(".json")) {
-                file.delete();
-            }
         }
         return newVideos;
     }
@@ -137,7 +138,7 @@ public class Channel {
         return null;
     }
 
-    public int countVideos() {
+    public int countVideos(Connection conn) {
         String countQuery = "SELECT COUNT(*) FROM Videos WHERE channel = ?";
         try (PreparedStatement pstmt = conn.prepareStatement(countQuery)) {
             pstmt.setString(1, this.channelName);
@@ -151,7 +152,7 @@ public class Channel {
         return this.numVideos;
     }
 
-    public void updateDB() {
+    public void updateDB(Connection conn) {
         String upsertChannelQuery = """
                 INSERT INTO Channels (channelName, channelID, URL, numVideos)
                 VALUES (?, ?, ?, ?)
@@ -167,7 +168,6 @@ public class Channel {
             pstmt.setString(3, URL);
             pstmt.setInt(4, numVideos);
             pstmt.executeUpdate();
-            System.out.println("Channel inserted/updated in the database: " + this);
         } catch (SQLException e) {
             System.out.println("Error inserting/updating channel in database: " + e.getMessage());
         }

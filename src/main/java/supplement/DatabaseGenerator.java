@@ -8,7 +8,7 @@ import java.sql.Statement;
 public class DatabaseGenerator {
 
     public static void main(String[] args) {
-        String fileName = "Data/Backup/database.db"; // Specify the database file name here
+        String fileName = "Data/Backup/sample.db"; // Specify the database file name here
         String url = "jdbc:sqlite:" + fileName;
 
         try (Connection conn = DriverManager.getConnection(url);
@@ -30,7 +30,7 @@ public class DatabaseGenerator {
                         CREATE TABLE "Videos" (
                         	"channel"	TEXT,
                         	"videoID"	TEXT,
-                        	"thumnailURL"	TEXT,
+                        	"thumbcnailURL"	TEXT,
                         	"uploadDate"	TEXT,
                         	"transcribed"	INTEGER,
                         	"indexed"	INTEGER,

@@ -20,7 +20,7 @@ public class Update {
         this.fileDirectory = fileDirectory;
         this.indexPath = indexPath;
         this.conn = conn;
-        this.index = new FTSIndex(indexPath, conn);
+        this.index = new FTSIndex(indexPath);
     }
 
     public void updateAllChannels() {
@@ -36,7 +36,7 @@ public class Update {
                 String URL = rs.getString("URL");
                 int numVideos = rs.getInt("numVideos");
 
-                Channel channel = new Channel(channelName, URL, fileDirectory, conn, numVideos);
+                Channel channel = new Channel(channelName, URL, fileDirectory, numVideos);
                 System.out.println("Updating Channel: " + channelName);
                 channels.add(channel);
                 updateChannel(channel);
@@ -59,7 +59,7 @@ public class Update {
                 String URL = rs.getString("URL");
                 int numVideos = rs.getInt("numVideos");
 
-                Channel channel = new Channel(channelName, URL, fileDirectory, conn, numVideos);
+                Channel channel = new Channel(channelName, URL, fileDirectory, numVideos);
                 System.out.println("Updating Channel: " + channelName);
                 updateChannel(channel);
             }
@@ -75,15 +75,15 @@ public class Update {
 
         if (!newVideos.isEmpty()) {
             for (String newVideo : newVideos) {
-                Video video = new Video(channel.channelName, newVideo, conn, fileDirectory);
-                video.transcribe();
-                video.index(index);
+                Video video = new Video(channel.channelName, newVideo, fileDirectory);
+                video.transcribe(conn);
+                video.index(index, conn);
             }
         }
 
         // Update the channel's video count
-        channel.countVideos();
-        channel.updateDB();
+        channel.countVideos(conn);
+        channel.updateDB(conn);
     }
 
     public static void main(String[] args) {

@@ -15,7 +15,7 @@ public class SearchIndex {
         String indexPath = "Data/FTSIndex.json";
 
         try (Connection conn = DriverManager.getConnection(url)) {
-            FTSIndex index = new FTSIndex(indexPath, conn);
+            FTSIndex index = new FTSIndex(indexPath);
             Scanner scanner = new Scanner(System.in);
 
             while (true) {
@@ -26,7 +26,7 @@ public class SearchIndex {
                     break;
                 }
 
-                List<VideoSearchResult> results = index.search(query);
+                List<VideoSearchResult> results = index.search(query, conn);
 
                 if (!results.isEmpty()) {
                     System.out.printf("\nFound matches in %d videos:%n", results.size());

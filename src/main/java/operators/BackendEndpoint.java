@@ -28,16 +28,14 @@ public class BackendEndpoint {
         // Initialize the connection and FTSIndex at startup
         Connection conn = DriverManager.getConnection(DB_URL);
         String indexPath = "Data/FTSIndex.json";
-        searchIndex = new FTSIndex(indexPath, conn);
+        searchIndex = new FTSIndex(indexPath);
         System.out.println("Search index loaded successfully");
 
         HttpServer server = HttpServer.create(new InetSocketAddress(8080), 0);
-
         server.createContext("/api/channels", new ChannelsHandler());
         server.createContext("/api/channels/refresh/", new RefreshChannelHandler());
         server.createContext("/api/channels/refresh-all", new RefreshAllHandler());
         server.createContext("/api/search", new SearchHandler());
-
         server.setExecutor(null);
         server.start();
         System.out.println("Server started on port 8080");
@@ -245,7 +243,7 @@ public class BackendEndpoint {
                 System.out.println("Searching for: " + searchQuery);
 
                 // Perform search
-                List<VideoSearchResult> results = searchIndex.search(searchQuery);
+                List<VideoSearchResult> results = searchIndex.search(searchQuery, conn);
 
                 // Convert results to JSON
                 JSONArray resultsArray = new JSONArray();

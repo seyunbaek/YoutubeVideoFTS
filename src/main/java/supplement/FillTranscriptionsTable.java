@@ -27,9 +27,9 @@ public class FillTranscriptionsTable {
                         String videoID = rs.getString("videoID");
 
                         // Step 2: Create Video instance and transcribe
-                        Video video = new Video(channelName, videoID, conn, fileDirectory);
+                        Video video = new Video(channelName, videoID, fileDirectory);
 //                        video.transcribe();
-                        video.updateDB();
+                        video.updateDB(conn);
                         System.out.println(video);
                     }
                 } catch (SQLException e) {

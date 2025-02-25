@@ -15,14 +15,14 @@ public class TestIndex {
 
         String selectVideoQuery = "SELECT channel, videoID FROM Videos WHERE indexed = 0";
         try (Connection conn = DriverManager.getConnection(url)){
-            FTSIndex index = new FTSIndex(indexPath, conn);
+            FTSIndex index = new FTSIndex(indexPath);
             try (PreparedStatement selectStmt = conn.prepareStatement(selectVideoQuery);
                  ResultSet rs = selectStmt.executeQuery()) {
                 while (rs.next()) {
                     String channel = rs.getString("channel");
                     String videoID = rs.getString("videoID");
-                    Video video = new Video(channel, videoID, conn, fileDirectory);
-                    video.index(index);
+                    Video video = new Video(channel, videoID, fileDirectory);
+                    video.index(index, conn);
                 }
                 index.updateIndex();
             } catch (Exception e) {

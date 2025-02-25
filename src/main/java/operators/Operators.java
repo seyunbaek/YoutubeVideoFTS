@@ -1,6 +1,7 @@
 package operators;
 
 import java.io.File;
+import java.io.IOException;
 import java.sql.*;
 import java.util.List;
 
@@ -9,7 +10,7 @@ import backend.FTSIndex;
 import backend.Video;
 import org.json.JSONArray;
 import org.json.JSONObject;
-import supplement.Update;
+import me.tongfei.progressbar.*;
 
 public class Operators {
     private static final String DB_URL = "jdbc:sqlite:Data/database.db";
@@ -54,26 +55,26 @@ public class Operators {
 
         try {
             // Create new channel instance
-            Channel channel = new Channel(channelName, url, FILE_DIRECTORY, conn, 0);
+            Channel channel = new Channel(channelName, url, FILE_DIRECTORY, 0);
 
             // Fetch data will set up directories and create archive
             List<String> newVideos = channel.fetchData();
 
             // Update the channel in database
-            channel.updateDB();
+            channel.updateDB(conn);
 
             // Process any new videos found
             if (!newVideos.isEmpty()) {
                 for (String videoId : newVideos) {
-                    Video video = new Video(channel.channelName, videoId, conn, FILE_DIRECTORY);
-                    video.transcribe();
-                    video.index(INDEX);
+                    Video video = new Video(channel.channelName, videoId, FILE_DIRECTORY);
+                    video.transcribe(conn);
+                    video.index(INDEX, conn);
                 }
             }
 
             // Update video count and DB
-            channel.countVideos();
-            channel.updateDB();
+            channel.countVideos(conn);
+            channel.updateDB(conn);
 
             response.put("success", true);
             response.put("message", "Channel added successfully");
@@ -199,36 +200,126 @@ public class Operators {
     // Refresh specific channel
     public JSONObject refreshChannel(String channelID) {
         JSONObject response = new JSONObject();
-
         try {
-            Update updater = new Update(DB_URL, FILE_DIRECTORY, INDEX_PATH, conn);
-            updater.updateChannel(channelID);
+            conn.setAutoCommit(false);  // Start transaction mode
+
+            String channelQuery = "SELECT * FROM Channels WHERE channelID = ?";
+            PreparedStatement pstmt = conn.prepareStatement(channelQuery);
+            pstmt.setString(1, channelID);
+            ResultSet rs = pstmt.executeQuery();
+
+            if (rs.next()) {
+                String channelName = rs.getString("channelName");
+                String URL = rs.getString("URL");
+                int numVideos = rs.getInt("numVideos");
+
+                // Create the Channel object and fetch new videos
+                Channel channel = new Channel(channelName, URL, FILE_DIRECTORY, numVideos);
+                System.out.println("Refreshing: "+channel.channelName);
+                List<String> newVideos = channel.fetchData();
+                System.out.println(newVideos.size() + " new videos for " + channel.channelName);
+                if (!newVideos.isEmpty()) {
+                    try (ProgressBar pb = new ProgressBar("Indexing", newVideos.size())) {
+                        for (String newVideo : newVideos) {
+                                Video video = new Video(channel.channelName, newVideo, FILE_DIRECTORY);
+                                video.transcribe(conn);  // Try transcribing the video
+                                video.index(INDEX, conn);  // Try indexing the video
+                                conn.commit();  // Commit the transaction for each successful video
+                            pb.step();
+                        }
+                    }
+                }
+
+                channel.countVideos(conn);
+                channel.updateDB(conn);
+                conn.commit();  // Commit changes related to channel update
+            }
             response.put("success", true);
             response.put("message", "Channel refreshed successfully");
-
         } catch (Exception e) {
+            try {
+                conn.rollback();  // Ensure the connection rolls back if the process fails
+            } catch (SQLException se) {
+                // Handle rollback exception if necessary
+            }
             response.put("success", false);
             response.put("message", "Error refreshing channel: " + e.getMessage());
+        } finally {
+            try {
+                conn.setAutoCommit(true);  // Restore auto-commit mode
+            } catch (SQLException se) {
+                // Handle exception if resetting auto-commit fails
+            }
         }
-
         return response;
     }
 
-    // Refresh all channels
     public JSONObject refreshAllChannels() {
         JSONObject response = new JSONObject();
-
         try {
-            Update updater = new Update(DB_URL, FILE_DIRECTORY, INDEX_PATH, conn);
-            updater.updateAllChannels();
-            response.put("success", true);
-            response.put("message", "All channels refreshed successfully");
+            conn.setAutoCommit(false);  // Start transaction mode
 
-        } catch (Exception e) {
+            String channelQuery = "SELECT * FROM Channels";
+            PreparedStatement pstmt = conn.prepareStatement(channelQuery);
+            ResultSet rs = pstmt.executeQuery();
+
+            boolean allChannelsRefreshedSuccessfully = true;  // Track overall success
+
+            while (rs.next()) {
+                String channelID = rs.getString("channelID");
+                String channelName = rs.getString("channelName");
+                String URL = rs.getString("URL");
+                int numVideos = rs.getInt("numVideos");
+
+                // Create the Channel object and fetch new videos
+                Channel channel = new Channel(channelName, URL, FILE_DIRECTORY, numVideos);
+                System.out.println("Refreshing: "+channel.channelName);
+                List<String> newVideos = channel.fetchData();
+                System.out.println(newVideos.size() + " new videos for " + channel.channelName);
+                if (!newVideos.isEmpty()) {
+                    try (ProgressBar pb = new ProgressBar("Indexing", newVideos.size())) {
+                        for (String newVideo : newVideos) {
+                            try {
+                                Video video = new Video(channel.channelName, newVideo, FILE_DIRECTORY);
+                                video.transcribe(conn);  // Try transcribing the video
+                                video.index(INDEX, conn);  // Try indexing the video
+                                conn.commit();  // Commit the transaction for each successful video
+                            } catch (Exception e) {
+                                conn.rollback();  // Rollback transaction if an error occurs with this video
+                            }
+                            pb.step();
+                        }
+                    }
+                }
+
+                channel.countVideos(conn);
+                channel.updateDB(conn);
+                conn.commit();  // Commit changes related to channel update
+            }
+
+            // Respond based on overall success
+            if (allChannelsRefreshedSuccessfully) {
+                response.put("success", true);
+                response.put("message", "All channels refreshed successfully");
+            } else {
+                response.put("success", false);
+                response.put("message", "Error refreshing one or more channels");
+            }
+        } catch (SQLException | IOException | InterruptedException e) {
+            try {
+                conn.rollback();  // Ensure the connection rolls back if the process fails
+            } catch (SQLException se) {
+                // Handle rollback exception if necessary
+            }
             response.put("success", false);
-            response.put("message", "Error refreshing channels: " + e.getMessage());
+            response.put("message", "Error refreshing all channels: " + e.getMessage());
+        } finally {
+            try {
+                conn.setAutoCommit(true);  // Restore auto-commit mode
+            } catch (SQLException se) {
+                // Handle exception if resetting auto-commit fails
+            }
         }
-
         return response;
     }
 }

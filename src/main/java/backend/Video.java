@@ -21,12 +21,10 @@ public class Video {
     public int numLines;
     public String metadataFilePath;
     public String transcriptionFilePath;
-    public Connection conn;
 
-    public Video(String channelName, String videoID, Connection conn, String fileDirectory) throws IOException, Exception{
+    public Video(String channelName, String videoID, String fileDirectory) throws IOException, Exception{
         this.channelName = channelName;
         this.videoID = videoID;
-        this.conn = conn;
         this.metadataFilePath = fileDirectory + "/" + channelName + "/metadata/" + videoID + ".json";
         this.transcriptionFilePath = fileDirectory + "/" + channelName + "/transcriptions/" + videoID + ".vtt";
 
@@ -49,14 +47,14 @@ public class Video {
         }
     }
 
-    public void transcribe() throws IOException{
+    public void transcribe(Connection conn) throws IOException{
         String insertTranscriptionQuery = "INSERT INTO Transcriptions (videoID, startTime, endTime, text, indexed) VALUES (?, ?, ?, ?, ?)";
 
         List<String[]> transcriptions = VTTProcessor.processVTT(this.transcriptionFilePath);
         this.transcribed = true;
         this.numLines = transcriptions.size();
         try {
-            updateDB();
+            updateDB(conn);
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
@@ -79,23 +77,22 @@ public class Video {
                 insertStmt.addBatch(); // Use batch processing for efficiency
             }
             insertStmt.executeBatch();
-            System.out.println("Inserted transcriptions for videoID: " + videoID);
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
     }
 
-    public void index(FTSIndex index) throws SQLException, IOException {
-        index.indexVideo(videoID);
+    public void index(FTSIndex index, Connection conn) throws SQLException, IOException {
+        index.indexVideo(videoID, conn);
         this.indexed = true;
         try {
-            updateDB();
+            updateDB(conn);
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
     }
 
-    public void updateDB() throws SQLException {
+    public void updateDB(Connection conn) throws SQLException {
         String upsertVideoQuery = """
             INSERT INTO Videos (channel, videoID, videoTitle, thumbnailURL, uploadDate, transcribed, indexed, numLines)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)

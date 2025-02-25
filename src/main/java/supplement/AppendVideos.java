@@ -19,14 +19,14 @@ public class AppendVideos {
         String selectVideo = "SELECT * FROM Videos WHERE channel='Marques Brownlee'";
 
         try (Connection conn = DriverManager.getConnection(url)) {
-            FTSIndex index = new FTSIndex(indexPath, conn);
+            FTSIndex index = new FTSIndex(indexPath);
             Statement stmt = conn.createStatement();
             ResultSet rs = stmt.executeQuery(selectVideo);
             while (rs.next()) {
                 String vidoeID = rs.getString("videoID");
-                Video video = new Video("Marques Brownlee", vidoeID, conn, fileDirectory);
-                video.transcribe();
-                video.index(index);
+                Video video = new Video("Marques Brownlee", vidoeID, fileDirectory);
+                video.transcribe(conn);
+                video.index(index, conn);
                 System.out.println(video);
             }
         } catch (Exception e) {

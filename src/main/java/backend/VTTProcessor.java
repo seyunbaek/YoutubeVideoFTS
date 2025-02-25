@@ -35,10 +35,9 @@ public class VTTProcessor {
     }
 
     private static String cleanText(String text) {
-        // Remove unnecessary tags, timestamps, and text within square brackets
-        text = text.replaceAll("<.*?>", ""); // Remove <c>...</c> tags
-        text = text.replaceAll("<\\d{2}:\\d{2}:\\d{2}\\.\\d{3}>", ""); // Remove timestamps like <00:00:50.320>
-        text = text.replaceAll("\\[.*?]", ""); // Remove text inside square brackets
+        text = text.replaceAll("<.*?>", ""); 
+        text = text.replaceAll("<\\d{2}:\\d{2}:\\d{2}\\.\\d{3}>", "");
+        text = text.replaceAll("\\[.*?]", ""); 
         return text.trim();
     }
 
